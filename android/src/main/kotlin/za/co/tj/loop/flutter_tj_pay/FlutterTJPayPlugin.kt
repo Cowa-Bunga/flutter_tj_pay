@@ -130,7 +130,6 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     act = null;
   }
 
-
   class TJPayBundle {
     private val bundle = Bundle()
 
@@ -144,6 +143,24 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
           is Short -> bundle.putShort(key, value)
           is Double -> bundle.putDouble(key, value)
           is Boolean -> bundle.putBoolean(key, value)
+          is ArrayList<*> -> {
+            if(value.isNotEmpty()) {
+              when (value[0]) {
+                is String -> bundle.putStringArrayList(key, value as ArrayList<String>)
+                is Int -> bundle.putIntegerArrayList(key, value as ArrayList<Int>)
+                else -> throw IllegalArgumentException("Unsupported type for value $value with key $key")
+              }
+            }
+          }
+          is Array<*> -> {
+            if(value.isNotEmpty()) {
+              when (value[0]) {
+                is String -> bundle.putStringArray(key, value as Array<String>)
+                is Int -> bundle.putIntArray(key, value as IntArray)
+                else -> throw IllegalArgumentException("Unsupported type for value $value with key $key")
+              }
+            }
+          }
           else -> throw IllegalArgumentException("Unsupported type for value $value with key $key")
         }
       }
