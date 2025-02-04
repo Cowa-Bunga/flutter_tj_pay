@@ -37,17 +37,23 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
 
     when (call.method) {
       "INIT_SERVICE" -> {
-        /** Configures the TJPay application to be able to communicate with Junction@POS and the device hardware **/
+       try {
+         /** Configures the TJPay application to be able to communicate with Junction@POS and the device hardware **/
 
-        val intent: Intent = Intent("za.co.transactionjunction.tjpay.android.INIT_SERVICE")
-          .also {
-            it.setClassName(
-              "za.co.transactionjunction.tjpay.android",
-              "za.co.transactionjunction.tjpay.android.MainActivity"
-            )
-          }
+         val intent: Intent = Intent("za.co.transactionjunction.tjpay.android.INIT_SERVICE")
+           .also {
+             it.setClassName(
+               "za.co.transactionjunction.tjpay.android",
+               "za.co.transactionjunction.tjpay.android.MainActivity"
+             )
+           }
 
-        act?.startActivityForResult(intent, triggerTJ)
+         act?.startActivityForResult(intent, triggerTJ)
+         result.success("Service initialized successfully.")
+       } catch (e: Exception) {
+            Log.e(loggingTag, "Unable to start application.", e)
+            result.error("UNABLE_TO_START", "Unable to start application.", null)
+       }
       }
       "ACTION_SEND" -> {
         /** Brings the TJPay application to the foreground and start a transaction **/
@@ -78,6 +84,12 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                   Intent.FLAG_ACTIVITY_CLEAR_TOP
         )
 
+        if (!this::resultLauncher.isInitialized) {
+          Log.e(loggingTag, "resultLauncher is not initialized yet!")
+          result.error("UNINITIALIZED", "ResultLauncher has not been initialized.", null)
+          return
+        }
+
         try {
           resultLauncher.launch(chooser)
         } catch (e: ActivityNotFoundException) {
@@ -95,26 +107,29 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+    Log.d(loggingTag, "onAttachedToActivity called!")
     act = binding.activity
 
-    if (binding.activity is ComponentActivity) {
-      val componentActivity = binding.activity as ComponentActivity
-      resultLauncher = componentActivity.registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-      ) { result: ActivityResult ->
-        if (result.resultCode == Activity.RESULT_OK) {
-          // check request code also?? (requestCode == TRIGGER_TJ)
-          val resultMap = mutableMapOf<String, Any>()
-          val bundle = result.data?.extras
-          bundle?.keySet()?.forEach { key ->
-            val value = bundle.get(key)
-            resultMap[key] = value ?: "null"
+    if(!this::resultLauncher.isInitialized) {
+      if (binding.activity is ComponentActivity) {
+        val componentActivity = binding.activity as ComponentActivity
+        resultLauncher = componentActivity.registerForActivityResult(
+          ActivityResultContracts.StartActivityForResult()
+        ) { result: ActivityResult ->
+          if (result.resultCode == Activity.RESULT_OK) {
+            // check request code also?? (requestCode == TRIGGER_TJ)
+            val resultMap = mutableMapOf<String, Any>()
+            val bundle = result.data?.extras
+            bundle?.keySet()?.forEach { key ->
+              val value = bundle.get(key)
+              resultMap[key] = value ?: "null"
+            }
+            this.result.success(resultMap)
           }
-          this.result.success(resultMap)
         }
+      } else {
+        Log.e(loggingTag, "Activity is not a ComponentActivity, cannot use registerForActivityResult")
       }
-    } else {
-      Log.e(loggingTag, "Activity is not a ComponentActivity, cannot use registerForActivityResult")
     }
   }
 
