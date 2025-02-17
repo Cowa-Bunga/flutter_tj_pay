@@ -117,20 +117,9 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     if (resultCode == Activity.RESULT_OK) {
-      Log.d(loggingTag, "Transaction completed successfully.")
       val resultMap = data.extras?.let { bundleToMap(it) } ?: mutableMapOf<String, Any>()
 
-      for ((key, value) in resultMap) {
-        if (value is Map<*, *>) {
-          for ((nestedKey, nestedValue) in value) {
-            Log.d(loggingTag, "resultMap[$key][$nestedKey] = $nestedValue (${nestedValue?.javaClass?.simpleName})")
-          }
-        } else {
-          Log.d(loggingTag, "resultMap[$key] = $value (${value?.javaClass?.simpleName})")
-        }
-      }
-
-      Log.d(loggingTag, "data response: $resultMap")
+      Log.d(loggingTag, "Transaction completed successfully.")
       result.success(resultMap)
     } else {
       Log.e(loggingTag, "Transaction failed.")
@@ -138,20 +127,35 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
   }
 
-    private fun bundleToMap(bundle: Bundle?): Map<String, Any?> {
-      val map = mutableMapOf<String, Any?>()
-      if (bundle == null) return map
+  private fun bundleToMap(bundle: Bundle?): Map<String, Any?> {
+    val map = mutableMapOf<String, Any?>()
+    if (bundle == null) return map
 
-      for (key in bundle.keySet()) {
-          when (val value = bundle.get(key)) {
-              is Bundle -> map[key] = bundleToMap(value)
-              is ArrayList<*> -> map[key] = value.toList()
-              is Int, is Boolean, is Double, is String, is Float, is Long, is Byte, is Short -> map[key] = value
-              else -> map[key] = value?.toString()
+    for (key in bundle.keySet()) {
+      when (val value = bundle.get(key)) {
+        is Bundle -> map[key] = bundleToMap(value) // Convert Bundle to Map
+        is ArrayList<*> -> map[key] = value.map { item ->
+          when (item) {
+            is Bundle -> bundleToMap(item)
+            is Int, is Boolean, is Double, is String, is Float, is Long, is Byte, is Short -> item
+            else -> item?.toString()
           }
+        }
+        is List<*> -> map[key] = value.map { item ->
+          when (item) {
+            is Bundle -> bundleToMap(item)
+            is Int, is Boolean, is Double, is String, is Float, is Long, is Byte, is Short -> item
+            else -> item?.toString()
+          }
+        }
+        is Int, is Boolean, is Double, is String, is Float, is Long, is Byte, is Short -> map[key] = value
+        else -> map[key] = value?.toString()
       }
-      return map.toMap() // Ensure immutable map
+      Log.d("FlutterTJPayPlugin", "bundleToMap[$key] = ${map[key]} (${map[key]?.javaClass?.simpleName})")
     }
+    return map.toMap()
+  }
+
 
   // Initialize the result launcher
   private fun initializeResultLauncher(activity: FlutterFragmentActivity) {
@@ -192,7 +196,8 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         val key = prop as String
         when (value) {
           is String -> bundle.putString(key, value)
-          is Int -> bundle.putLong(key, value.toLong())
+          is Int -> bundle.putInt(key, value)
+          is Long -> bundle.putLong(key, value)
           is Byte -> bundle.putByte(key, value)
           is Char -> bundle.putChar(key, value)
           is Short -> bundle.putShort(key, value)
