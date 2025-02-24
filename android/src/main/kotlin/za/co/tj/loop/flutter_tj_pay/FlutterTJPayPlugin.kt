@@ -133,21 +133,11 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
 
     for (key in bundle.keySet()) {
       when (val value = bundle.get(key)) {
-        is Bundle -> map[key] = bundleToMap(value) // Convert Bundle to Map
-        is ArrayList<*> -> map[key] = value.map { item ->
-          when (item) {
-            is Bundle -> bundleToMap(item)
-            is Int, is Boolean, is Double, is String, is Float, is Long, is Byte, is Short -> item
-            else -> item?.toString()
-          }
-        }
-        is List<*> -> map[key] = value.map { item ->
-          when (item) {
-            is Bundle -> bundleToMap(item)
-            is Int, is Boolean, is Double, is String, is Float, is Long, is Byte, is Short -> item
-            else -> item?.toString()
-          }
-        }
+        is Bundle -> map[key] = bundleToMap(value)
+        is ArrayList<*> -> map[key] = value.map { item -> processItem(item) }
+        is List<*> -> map[key] = value.map { item -> processItem(item) }
+        is LinkedHashMap<*, *> -> map[key] = value.mapKeys { it.key.toString() }
+          .mapValues { processItem(it.value) }
         is Int, is Boolean, is Double, is String, is Float, is Long, is Byte, is Short -> map[key] = value
         else -> map[key] = value?.toString()
       }
@@ -156,6 +146,18 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     return map.toMap()
   }
 
+  // Helper function to process different types of values
+  private fun processItem(item: Any?): Any? {
+    return when (item) {
+      is Bundle -> bundleToMap(item)
+      is LinkedHashMap<*, *> -> item.mapKeys { it.key.toString() }
+        .mapValues { processItem(it.value) }
+      is List<*> -> item.map { processItem(it) }
+      is ArrayList<*> -> item.map { processItem(it) }
+      is Int, is Boolean, is Double, is String, is Float, is Long, is Byte, is Short -> item
+      else -> item?.toString()
+    }
+  }
 
   // Initialize the result launcher
   private fun initializeResultLauncher(activity: FlutterFragmentActivity) {
@@ -196,7 +198,7 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         val key = prop as String
         when (value) {
           is String -> bundle.putString(key, value)
-          is Int -> bundle.putInt(key, value)
+          is Int -> bundle.putLong(key, value.toLong())
           is Long -> bundle.putLong(key, value)
           is Byte -> bundle.putByte(key, value)
           is Char -> bundle.putChar(key, value)
