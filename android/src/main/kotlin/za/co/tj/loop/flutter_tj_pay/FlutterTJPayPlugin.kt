@@ -56,18 +56,26 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
       }
       "ACTION_SEND" -> {
         /** Brings the TJPay application to the foreground and start a transaction **/
-
-        val cardReq = call.arguments as Map<*, *>
-        Log.d(loggingTag, "cardReq: $cardReq")
+        val req = call.arguments as Map<*, *>
+        Log.d(loggingTag, "req: $req")
 
         val cardReqBundle: Bundle = TJPayBundle().apply {
-          put(cardReq)
+          put(req["cardReq"] as Map<*, *>)
+        }.toBundle()
+
+        val terminalDetailsBundle: Bundle = TJPayBundle().apply {
+          put(req["terminalDetails"] as Map<*, *>)
         }.toBundle()
 
         // Log all key-value pairs in the bundle
         for (key in cardReqBundle.keySet()) {
           val value = cardReqBundle.get(key)
           Log.d(loggingTag, "cardReqBundle[$key] = $value (${value?.javaClass?.simpleName})")
+        }
+
+        for (key in terminalDetailsBundle.keySet()) {
+          val value = terminalDetailsBundle.get(key)
+          Log.d(loggingTag, "terminalDetailsBundle[$key] = $value (${value?.javaClass?.simpleName})")
         }
 
         val intent: Intent = Intent("android.intent.action.SEND")
@@ -79,6 +87,7 @@ class FlutterTJPayPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             it.addCategory(Intent.CATEGORY_DEFAULT)
             it.setType("text/plain")
             it.putExtra("cardReq", cardReqBundle)
+            it.putExtra("terminalDetails", terminalDetailsBundle)
             it.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             it.addFlags(Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT)
             it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
